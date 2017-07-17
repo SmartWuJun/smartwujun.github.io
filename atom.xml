@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="http://yoursite.com/"/>
-  <updated>2017-07-08T15:38:56.000Z</updated>
+  <updated>2017-07-17T15:46:51.000Z</updated>
   <id>http://yoursite.com/</id>
   
   <author>
@@ -14,6 +14,41 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>vue.use源码分析</title>
+    <link href="http://yoursite.com/2017/07/17/vue-use%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90/"/>
+    <id>http://yoursite.com/2017/07/17/vue-use源码分析/</id>
+    <published>2017-07-17T15:39:51.000Z</published>
+    <updated>2017-07-17T15:46:51.000Z</updated>
+    
+    <content type="html"><![CDATA[<h2 id="源码"><a href="#源码" class="headerlink" title="#源码"></a>#源码</h2><figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div></pre></td><td class="code"><pre><div class="line">Vue.use = <span class="function"><span class="keyword">function</span> (<span class="params">plugin</span>) </span>&#123;</div><div class="line">    <span class="comment">/* istanbul ignore if */</span></div><div class="line">    <span class="keyword">if</span> (plugin.installed) &#123;</div><div class="line">      <span class="keyword">return</span></div><div class="line">    &#125;</div><div class="line">    <span class="comment">// additional parameters</span></div><div class="line">    <span class="keyword">var</span> args = toArray(<span class="built_in">arguments</span>, <span class="number">1</span>);</div><div class="line">    args.unshift(<span class="keyword">this</span>);</div><div class="line">    <span class="keyword">if</span> (<span class="keyword">typeof</span> plugin.install === <span class="string">'function'</span>) &#123;</div><div class="line">      plugin.install.apply(plugin, args);</div><div class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (<span class="keyword">typeof</span> plugin === <span class="string">'function'</span>) &#123;</div><div class="line">      plugin.apply(<span class="literal">null</span>, args);</div><div class="line">    &#125;</div><div class="line">    plugin.installed = <span class="literal">true</span>;</div><div class="line">    <span class="keyword">return</span> <span class="keyword">this</span></div><div class="line">  &#125;;</div></pre></td></tr></table></figure>
+<p>假设我们通过Vue.use引入一个插件plugin(该插件可以暂时理解为一个变量或参数),即Vue.use(plugin);</p>
+<p>首先判断传入的参数plugin的属性installed是否存在，如果存在且逻辑值为真，那么直接返回，后边的代码就不会在执行，这个判断的作用是什么呢？后边会讲到。</p>
+<p>我们先假设plugin的属性installed不存在或为假，那么继续往下执行</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">var</span> args = toArray(<span class="built_in">arguments</span>, <span class="number">1</span>);</div><div class="line"><span class="comment">//执行了一个toArray方法，toArray接收了两个参数，arguments为Vue.use方法传入的参数集合，例如Vue.use(a,b,c),那么arguments类似于[a,b,c]（说明：arguments只是类数组，并不是真正的数组）</span></div><div class="line">此处因为我们只引入一个参数plugin,所以<span class="built_in">arguments</span>类似于[plugin]。</div></pre></td></tr></table></figure>
+<h2 id="toArray-源码"><a href="#toArray-源码" class="headerlink" title="#toArray 源码"></a>#toArray 源码</h2><figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">toArray</span> (<span class="params">list, start</span>) </span>&#123;</div><div class="line">  start = start || <span class="number">0</span>;</div><div class="line">  <span class="keyword">var</span> i = list.length - start;</div><div class="line">  <span class="keyword">var</span> ret = <span class="keyword">new</span> <span class="built_in">Array</span>(i);</div><div class="line">  <span class="keyword">while</span> (i--) &#123;</div><div class="line">    ret[i] = list[i + start];</div><div class="line">  &#125;</div><div class="line">  <span class="keyword">return</span> ret</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>当执行toArray(arguments,1)，会生成一个新数组ret，长度 = arguments.length-1，然后进行while循环，依次倒序把arguments的元素赋值给ret,因为ret比arguments长度少1，所以最终等同于arguments把除了第一个元素外的其余元素赋值给ret。toArray主要作用就是把类数组转化为真正的数组，这样才能调用数组的方法。因为此处我只引入一个plugin参数，即arguments=[plugin]，所以toArray返回为空数组[]。</p>
+<p>接着往下执行，args.unshift(this)，等同于[].unshift(Vue),即args = [Vue];</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">if</span> (<span class="keyword">typeof</span> plugin.install === <span class="string">'function'</span>) &#123;</div><div class="line">      plugin.install.apply(plugin, args);</div><div class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (<span class="keyword">typeof</span> plugin === <span class="string">'function'</span>) &#123;</div><div class="line">      plugin.apply(<span class="literal">null</span>, args);</div><div class="line">    &#125;</div></pre></td></tr></table></figure>
+<p>此处判断plugin的install是否为函数，如果为函数，立即执行pluign.install方法，install方法传入的参数为args内数组元素，即install接受的第一个参数为Vue.</p>
+<p>如果plugin的install不是函数，那么判断plugin本身是否为函数，如果为函数，那么执行plugin函数，且参数为args内数组元素。</p>
+<p>最后设置plugin.installed为true。设置plugin.installed为true的作用是避免同一个插件多次执行安装，比如Vue.use(plugin)执行一次之后，installed为true,再次执行的话走到第一步判断就返回了。</p>
+<p>综上所述，Vue.use的作用其实就是执行一个plugin函数或者执行pluign的install方法进行插件注册，并且向plugin或其install方法传入Vue对象作为第一个参数，use的其他参数作为plugin或install的其他参数。</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">import</span> Vue <span class="keyword">from</span> <span class="string">'vue'</span></div><div class="line"></div><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">test</span>(<span class="params">a</span>)</span>&#123;</div><div class="line">   <span class="built_in">console</span>.log(a);<span class="comment">//Vue</span></div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">test1</span>(<span class="params">a,b</span>)</span>&#123;</div><div class="line">　　<span class="built_in">console</span>.log(a,b);<span class="comment">//Vue hello</span></div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="keyword">let</span> oTest = &#123;</div><div class="line">   install：<span class="function"><span class="keyword">function</span>(<span class="params">a,b</span>)</span>&#123;</div><div class="line">      <span class="built_in">console</span>.log(a,b);<span class="comment">//Vue hello1</span></div><div class="line">   &#125;</div><div class="line">&#125;</div><div class="line"></div><div class="line">Vue.use(test);</div><div class="line"></div><div class="line">Vue.use(test1,<span class="string">'hello'</span>);</div><div class="line">Vue.use(oTest,<span class="string">'hello1'</span>)</div><div class="line"><span class="built_in">console</span>.log(oTest);</div><div class="line"><span class="comment">//&#123;</span></div><div class="line">　　install:<span class="function"><span class="keyword">function</span>(<span class="params"></span>)</span>&#123;...&#125;,</div><div class="line">　　<span class="attr">installed</span>:<span class="literal">true</span></div><div class="line">&#125;</div></pre></td></tr></table></figure>]]></content>
+    
+    <summary type="html">
+    
+      &lt;h2 id=&quot;源码&quot;&gt;&lt;a href=&quot;#源码&quot; class=&quot;headerlink&quot; title=&quot;#源码&quot;&gt;&lt;/a&gt;#源码&lt;/h2&gt;&lt;figure class=&quot;highlight js&quot;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&quot;gutter&quot;&gt;&lt;pre&gt;&lt;div cl
+    
+    </summary>
+    
+      <category term="vue" scheme="http://yoursite.com/categories/vue/"/>
+    
+    
+      <category term="vue" scheme="http://yoursite.com/tags/vue/"/>
+    
+  </entry>
   
   <entry>
     <title>Markdown 编辑阅读器</title>
